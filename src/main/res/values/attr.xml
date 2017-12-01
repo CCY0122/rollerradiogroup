@@ -8,5 +8,6 @@
         <attr name="text_padding" format="dimension"/>
         <attr name="shader_color" format="color"/>
         <attr name="show_edge_line" format="boolean"/>
+        <attr name="auto_selected" format="boolean"/>
     </declare-styleable>
 </resources>

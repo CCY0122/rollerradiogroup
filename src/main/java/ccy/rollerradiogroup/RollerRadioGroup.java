@@ -32,6 +32,7 @@ import java.util.List;
  * text_padding 文字间距<br/>
  * shader_color 阴影颜色，如果不设置，则与background相同，如果background不是一个颜色值,则默认白色<br/>
  * show_edge_line 是否显示上下边框的线条
+ * auto_selected  是否滑动事件结束后自动选择并滚动到离控件中心最近的item
  * 用法：<br/>
  * 通过{@link RollerRadioGroup#setData(List, int)}、{@link RollerRadioGroup#setData(List)}传入数据<br/>
  * 通过其他setter方法进行配置
@@ -44,6 +45,7 @@ public class RollerRadioGroup extends View {
     private final float NORMAL_SIZE = sp2px(14);
     //    private final float SELECT_SIZE = 1.3f * NORMAL_SIZE;
     private final float DEFAULT_PADDING = dp2pxf(10);
+    private final float DEFAULT_LINE_STROKE_WIDTH = dp2px(1);
 
     //属性
     private int normalColor; //未选中字体颜色
@@ -54,6 +56,7 @@ public class RollerRadioGroup extends View {
     //    private boolean clipEdge; //true则因超出边界而显示不完整的文字不画. 备注：懒的写 算了
     private int shaderColor; //阴影颜色
     private boolean showEdgeLine; //是否显示上下边框的线条
+    private boolean autoSelected; //是否滑动事件结束后自动选择并滚动到离控件中心最近的item
 
     //数据
     private List<String> texts = new ArrayList<>();
@@ -97,7 +100,8 @@ public class RollerRadioGroup extends View {
 //        clipEdge = ta.getBoolean(R.styleable.RollerRadioGroup_clip_edge, false);
         textPadding = ta.getDimension(R.styleable.RollerRadioGroup_text_padding, DEFAULT_PADDING);
         shaderColor = ta.getColor(R.styleable.RollerRadioGroup_shader_color, getBackgroundColor());
-        showEdgeLine = ta.getBoolean(R.styleable.RollerRadioGroup_show_edge_line, false);
+        showEdgeLine = ta.getBoolean(R.styleable.RollerRadioGroup_show_edge_line, true);
+        autoSelected = ta.getBoolean(R.styleable.RollerRadioGroup_auto_selected, true);
         ta.recycle();
 
         initPaint();
@@ -116,7 +120,7 @@ public class RollerRadioGroup extends View {
         selPaint.setColor(selectedColor);
         selPaint.setTextSize(selectedSize);
         selPaint.setTextAlign(Paint.Align.CENTER);
-        selPaint.setStrokeWidth(dp2pxf(1));
+        selPaint.setStrokeWidth(DEFAULT_LINE_STROKE_WIDTH);
         selFont = selPaint.getFontMetrics();
 
         shaderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -134,7 +138,7 @@ public class RollerRadioGroup extends View {
             ws = dp2px(150);
         }
         if (hm != MeasureSpec.EXACTLY) {
-            hs = (int) (Math.max(selectedSize,normalSize) + dp2px(20));
+            hs = (int) (Math.max(selectedSize, normalSize) + dp2px(20));
         }
 
         setMeasuredDimension(ws, hs);
@@ -165,8 +169,30 @@ public class RollerRadioGroup extends View {
      */
     private void drawEdgeLine(Canvas canvas) {
         canvas.save();
-        canvas.drawLine(-getMeasuredWidth(), 0, contentWidth + getMeasuredWidth(), 0, selPaint);
-        canvas.drawLine(-getMeasuredWidth(), getMeasuredHeight(), contentWidth + getMeasuredWidth(), getMeasuredHeight(), selPaint);
+        canvas.drawLine(-getMeasuredWidth(),
+                0 + selPaint.getStrokeWidth() / 2,
+                contentWidth + getMeasuredWidth(),
+                0 + selPaint.getStrokeWidth() / 2,
+                selPaint);
+        canvas.drawLine(-getMeasuredWidth(),
+                getMeasuredHeight() - selPaint.getStrokeWidth() / 2,
+                contentWidth + getMeasuredWidth(),
+                getMeasuredHeight() - selPaint.getStrokeWidth() / 2,
+                selPaint);
+
+        //两边竖线 （不好看,待删除）
+//        Rect textRect = textsRects.get(selectedId);
+//        float textCenterX = textsCenterX.get(selectedId);
+//        canvas.drawLine(textCenterX - textRect.width() / 2.0f - textPadding / 2.0f,
+//                getMeasuredHeight() / 2.0f - textRect.height(),
+//                textCenterX - textRect.width() / 2.0f - textPadding / 2.0f,
+//                getMeasuredHeight() / 2.0f + textRect.height(),
+//                selPaint);
+//        canvas.drawLine(textCenterX + textRect.width() / 2.0f + textPadding / 2.0f,
+//                getMeasuredHeight() / 2.0f - textRect.height(),
+//                textCenterX + textRect.width() / 2.0f + textPadding / 2.0f,
+//                getMeasuredHeight() / 2.0f + textRect.height(),
+//                selPaint);
         canvas.restore();
     }
 
@@ -190,11 +216,6 @@ public class RollerRadioGroup extends View {
     private void drawShader(Canvas canvas) {
         canvas.save();
         float rectWidth = getMeasuredWidth() * 0.2f;
-//        int startColor = getBackgroundColor() & 0X00FFFFFF; //将ARGB的A置为00，其他不变
-//        int stopColor = getBackgroundColor();
-//        if((stopColor & 0XFF000000)  == 0){  //如果用户只给了RGB 则将A置为FF
-//            stopColor = getBackgroundColor() | 0XFF000000;
-//        }
         int startColor = shaderColor & 0X00FFFFFF; //将ARGB(也可能是RGB）的A置为00，其他不变
         int stopColor = shaderColor;
         if ((stopColor & 0XFF000000) == 0) {  //如果用户只给了RGB 则手动给A设为FF
@@ -249,9 +270,6 @@ public class RollerRadioGroup extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (contentWidth <= getMeasuredWidth()) {  //如果内容长度没有超出控件长度，无需支持滑动， 直接结束
-            return true;
-        }
         if (velocityTracker == null) {
             velocityTracker = VelocityTracker.obtain();
         }
@@ -272,8 +290,11 @@ public class RollerRadioGroup extends View {
                     isClickEvent = true;
                 } else {
                     isClickEvent = false;
-                    //备注：不用考虑越界修复了，不然开头几个和末尾几个不容易选到
+                    if (contentWidth <= getMeasuredWidth()) {  //如果内容长度没有超出控件长度，无需支持滑动,直接结束(防止闪烁））
+                        return true;
+                    }
                     scrollTo((int) (beginScrollX + deltaX), 0);
+                    dealOutOfBounds(true);
                 }
                 break;
             case MotionEvent.ACTION_UP:
@@ -281,20 +302,29 @@ public class RollerRadioGroup extends View {
                 if (isClickEvent) {  //判定为点击事件
                     setSelectedId(calculateNewSelectedId(beginScrollX + x));
                 } else {  //判定为滑动或抛动事件
+                    if (contentWidth <= getMeasuredWidth()) {  //如果内容长度没有超出控件长度，无需支持滑动,直接结束(防止闪烁）
+                        return true;
+                    }
                     velocityTracker.computeCurrentVelocity(1000);  //计算1秒内滑动过多少像素
                     int xVelocity = (int) velocityTracker.getXVelocity();
-                    if (Math.abs(xVelocity) > viewConfiguration.getScaledMinimumFlingVelocity()) {  //滑动速度可被判定为抛动
+                    //判定为抛动
+                    if (Math.abs(xVelocity) > viewConfiguration.getScaledMinimumFlingVelocity()) {
                         scroller.fling(getScrollX(),
-                                0,
+                                getScrollY(),
                                 -xVelocity,
                                 0,
-                                -getMeasuredWidth() / 2, //允许向左越界半个控件宽
-                                (int) contentWidth - getMeasuredWidth() / 2, //允许向右越界半个控件宽
+                                -getMeasuredWidth() / 2,
+                                (int) (contentWidth - getMeasuredWidth() / 2.0f),
                                 0,
                                 0);
                         invalidate();
-                    } else { //滑动速度不被认定为抛动
-                        setSelectedId(calculateNewSelectedId());
+                    } else { //判定为普通滑动
+                        if (autoSelected) {
+                            setSelectedId(calculateNewSelectedId());
+                        } else {
+                            //如果未开启autoSelected，那么就检查一下是否要越界恢复
+                            dealOutOfBounds(false);
+                        }
                     }
                 }
 
@@ -302,6 +332,32 @@ public class RollerRadioGroup extends View {
                 break;
         }
         return super.onTouchEvent(event);
+    }
+
+    /**
+     * 越界恢复(左右最多越界半个控件宽)
+     *
+     * @param immediately 是否立即恢复，无动画过程
+     */
+    private void dealOutOfBounds(boolean immediately) {
+        float deltaX;
+        if (getScrollX() < -getMeasuredWidth() / 2.0f) {
+            deltaX = -getMeasuredWidth() / 2.0f - getScrollX();
+            if (immediately) {
+                scrollTo((int) (-getMeasuredWidth() / 2.0f), getScrollY());
+            } else {
+                scroller.startScroll(getScrollX(), getScrollY(), (int) deltaX, 0);
+            }
+            invalidate();
+        } else if (getScrollX() > contentWidth - getMeasuredWidth() / 2.0f) {
+            deltaX = (contentWidth - getMeasuredWidth() / 2.0f) - getScrollX();
+            if (immediately) {
+                scrollTo((int) (contentWidth - getMeasuredWidth() / 2.0f), getScrollY());
+            } else {
+                scroller.startScroll(getScrollX(), getScrollY(), (int) deltaX, 0);
+            }
+            invalidate();
+        }
     }
 
     /**
@@ -343,7 +399,7 @@ public class RollerRadioGroup extends View {
         if (deltaX >= -1 && deltaX <= 1) {  //容差 0±1，因为int/float转型过程可能导致结果无法正好为0，
             return;
         }
-        scroller.startScroll(getScrollX(), getScrollY(), (int) deltaX, getScrollY());
+        scroller.startScroll(getScrollX(), getScrollY(), (int) deltaX, 0);
         invalidate();
     }
 
@@ -355,7 +411,9 @@ public class RollerRadioGroup extends View {
             invalidate();
         } else {
             if (!isTouching) {  //滑动结束且手指已抬起
-                setSelectedId(calculateNewSelectedId());
+                if (autoSelected) {
+                    setSelectedId(calculateNewSelectedId());
+                }
             }
         }
     }
@@ -368,7 +426,7 @@ public class RollerRadioGroup extends View {
         //1、记录各项文字的边界
         textsRects.clear();
         //这里全部按较大的画笔记录数据，
-        //这样在选中的文字放大时两边文字不会因挤压而改变内容的x坐标
+        //这样在选中的文字放大时就不可能出现与两边文字叠加的情况
         Paint p = selectedSize > normalSize ? selPaint : norPaint;
         for (int i = 0; i < texts.size(); i++) {
             Rect rect = new Rect();
@@ -387,6 +445,7 @@ public class RollerRadioGroup extends View {
     }
 
 
+    //=========================================================================================
     //以下为对外公开的设置方法
 
     /**
@@ -444,8 +503,8 @@ public class RollerRadioGroup extends View {
      * @param noListener true则不触发监听回调
      */
     public boolean setSelectedId(int selectedId, boolean noListener) {
-        if (texts != null && selectedId >= 0 && selectedId < texts.size()) {  //不要在这里判断this.selectedId != selectedId
-            if (!noListener && listener != null && this.selectedId != selectedId) {
+        if (texts != null && selectedId >= 0 && selectedId < texts.size()) {
+            if (!noListener && listener != null) {
                 listener.onItemSelected(this, selectedId, this.selectedId);
             }
             this.selectedId = selectedId;
@@ -464,8 +523,8 @@ public class RollerRadioGroup extends View {
     public boolean setSelectedId(String itemName, boolean noListener) {
         if (itemName != null) {
             int id = texts.indexOf(itemName);
-            if (id != -1) {   //不要在这里判断this.selectedId != id
-                if (!noListener && listener != null && this.selectedId != id) {
+            if (id != -1) {
+                if (!noListener && listener != null) {
                     listener.onItemSelected(this, id, this.selectedId);
                 }
                 this.selectedId = id;
@@ -558,6 +617,15 @@ public class RollerRadioGroup extends View {
 
     public void setShowEdgeLine(boolean showEdgeLine) {
         this.showEdgeLine = showEdgeLine;
+        invalidate();
+    }
+
+    public boolean isAutoSelected() {
+        return autoSelected;
+    }
+
+    public void setAutoSelected(boolean autoSelected) {
+        this.autoSelected = autoSelected;
         invalidate();
     }
 
