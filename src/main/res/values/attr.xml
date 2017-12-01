@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="RollerRadioGroup">
+        <attr name="normal_color" format="color"/>
+        <attr name="selected_color" format="color"/>
+        <attr name="normal_size" format="dimension"/>
+        <attr name="selected_size" format="dimension"/>
+        <attr name="text_padding" format="dimension"/>
+        <attr name="shader_color" format="color"/>
+        <attr name="show_edge_line" format="boolean"/>
+    </declare-styleable>
+</resources>
