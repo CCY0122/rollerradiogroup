@@ -32,6 +32,13 @@ Android横向滚动单选控件
   r1.setNormalColor(0xff787878);
   r1.setAutoSelected(true);
   //…………省略各种r1.setXXX
-   r1.setData(data);
+  r1.setData(data);
+  r1.setOnRollerListener(new RollerRadioGroup.OnRollerListener() {
+      @Override
+      public void onItemSelected(RollerRadioGroup v, int selectedId, int lastSelectedId) {
+        
+      }
+  });
+
   
 ```
