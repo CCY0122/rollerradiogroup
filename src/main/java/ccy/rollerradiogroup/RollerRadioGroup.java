@@ -266,7 +266,7 @@ public class RollerRadioGroup extends View {
     private float lastX = 0;
     private float x = 0;
     private float beginScrollX = 0;  //触摸事件开始时的scrollX
-    private boolean isClickEvent; //判定是否属于点击事件
+    private boolean isClickEvent = true; //判定是否属于点击事件
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -282,6 +282,7 @@ public class RollerRadioGroup extends View {
                 }
                 beginScrollX = getScrollX();
                 lastX = event.getX();
+                isClickEvent = true;
                 return true;
             case MotionEvent.ACTION_MOVE:
                 x = event.getX();
